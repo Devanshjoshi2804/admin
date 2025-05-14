@@ -1,0 +1,79 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build directories
+/dist
+/dist-ssr
+*.local
+/build
+
+# Backend specific
+/backend/api/dist
+/backend/api/node_modules
+/backend/api/freight_flow.sqlite
+/backend/api/freight_flow.sqlite-journal
+/backend/api/.env
+/backend/api/coverage
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+/coverage
+/.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
+.cache
+
+# OS specific
+Thumbs.db
+desktop.ini
+
+# Package managers
+yarn.lock
+package-lock.json
+# Keep bun.lockb as it's binary and needed
+# bun.lockb
+
+# Debug files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Miscellaneous
+*.bak
+*.orig
+*.~
+*.swp

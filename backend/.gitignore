@@ -1,0 +1,47 @@
+# Compiled output
+/api/dist
+/api/**/dist
+/api/**/*.js
+/api/**/*.js.map
+
+# Dependencies
+/api/node_modules
+
+# Database
+/api/freight_flow.sqlite
+/api/freight_flow.sqlite-journal
+/api/*.db
+/api/*.db-journal
+
+# Environment files
+/api/.env
+/api/.env.*
+
+# Logs
+/api/logs
+/api/*.log
+/api/npm-debug.log*
+/api/yarn-debug.log*
+/api/yarn-error.log*
+/api/lerna-debug.log*
+
+# Coverage directory
+/api/coverage
+/api/.nyc_output
+
+# IDE
+/api/.idea
+/api/.project
+/api/.classpath
+/api/.c9/
+/api/*.launch
+/api/.settings/
+/api/*.sublime-workspace
+
+# OS
+/api/.DS_Store
+/api/Thumbs.db
+
+# Tests
+/api/test/**/*.js
+/api/test/**/*.d.ts 
