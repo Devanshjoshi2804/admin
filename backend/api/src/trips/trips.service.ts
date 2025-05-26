@@ -1,16 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { Trip } from './entities/trip.entity';
+import { Trip, TripDocument } from './schemas/trip.schema';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
 @Injectable()
 export class TripsService {
   constructor(
-    @InjectRepository(Trip)
-    private tripsRepository: Repository<Trip>,
+    @InjectModel(Trip.name)
+    private tripModel: Model<TripDocument>,
   ) {}
 
   async create(createTripDto: CreateTripDto): Promise<Trip> {
@@ -18,487 +18,725 @@ export class TripsService {
     const date = new Date();
     const formattedDate = `${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
     const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    const orderNumber = `FTL-${formattedDate}-${randomPart}`;
-
-    // Calculate advance and balance amounts
-    const advanceSupplierFreight = Number((createTripDto.supplierFreight * (createTripDto.advancePercentage / 100)).toFixed(2));
-    const balanceSupplierFreight = Number((createTripDto.supplierFreight - advanceSupplierFreight).toFixed(2));
+    const orderNumber = createTripDto.orderNumber || `FTL-${formattedDate}-${randomPart}`;
+    
+    // Generate a unique ID if not provided
+    const tripId = createTripDto.id || `TR${uuidv4().substring(0, 8).toUpperCase()}`;
 
     try {
       console.log("Creating trip with DTO:", JSON.stringify(createTripDto));
       
-      // Validate materials are properly formatted
-      if (!createTripDto.materials || !Array.isArray(createTripDto.materials)) {
-        throw new Error('Materials must be an array');
-      }
+      // Create pricing object if individual pricing fields are provided
+      const pricing = createTripDto.pricing || {
+        baseAmount: createTripDto.baseAmount || 0,
+        gst: createTripDto.gst || 0,
+        totalAmount: createTripDto.totalAmount || 0
+      };
       
-      // Ensure materials can be serialized
-      let materialsString: string;
-      try {
-        materialsString = JSON.stringify(createTripDto.materials || []);
-      } catch (jsonError) {
-        console.error('Error serializing materials:', jsonError);
-        throw new Error('Invalid materials format: cannot be serialized to JSON');
-      }
+      // Calculate freight-related values if not provided
+      const clientFreight = createTripDto.clientFreight || 0;
+      const supplierFreight = createTripDto.supplierFreight || 0;
+      const advancePercentage = createTripDto.advancePercentage || 30;
       
-      // Create new trip entity with properly serialized JSON data
-      const trip = this.tripsRepository.create({
-        ...createTripDto,
+      // Calculate derived values if not provided
+      const margin = createTripDto.margin !== undefined 
+        ? createTripDto.margin 
+        : clientFreight - supplierFreight;
+      
+      const advanceSupplierFreight = createTripDto.advanceSupplierFreight !== undefined
+        ? createTripDto.advanceSupplierFreight
+        : (supplierFreight * advancePercentage) / 100;
+      
+      const balanceSupplierFreight = createTripDto.balanceSupplierFreight !== undefined
+        ? createTripDto.balanceSupplierFreight
+        : supplierFreight - advanceSupplierFreight;
+      
+      // Create the MongoDB document with streamlined workflow
+      const newTrip = new this.tripModel({
+        id: tripId,
         orderNumber,
+        clientId: createTripDto.clientId,
+        clientName: createTripDto.clientName,
+        vehicleId: createTripDto.vehicleId,
+        vehicleNumber: createTripDto.vehicleNumber,
+        vehicleType: createTripDto.vehicleType,
+        supplierId: createTripDto.supplierId,
+        supplierName: createTripDto.supplierName,
+        source: createTripDto.source,
+        destination: createTripDto.destination,
+        distance: createTripDto.distance,
+        startDate: createTripDto.startDate,
+        endDate: createTripDto.endDate,
+        loadingDate: createTripDto.loadingDate,
+        unloadingDate: createTripDto.unloadingDate,
+        pricing,
+        documents: createTripDto.documents || [],
+        status: 'Booked', // Always start with 'Booked' status
+        clientFreight,
+        supplierFreight,
+        advancePercentage,
+        margin,
         advanceSupplierFreight,
         balanceSupplierFreight,
-        materials: materialsString,
-        documents: JSON.stringify([]),
-        fieldOps: JSON.stringify(createTripDto.fieldOps || {
-          name: "Operations Team",
-          phone: "9999999999",
-          email: "ops@example.com"
-        }),
-        status: createTripDto.status || 'Booked',
-        advancePaymentStatus: createTripDto.advancePaymentStatus || 'Not Started',
-        balancePaymentStatus: createTripDto.balancePaymentStatus || 'Not Started',
-        podUploaded: false,
+        advancePaymentStatus: 'Not Started',
+        balancePaymentStatus: 'Not Started',
+        isInAdvanceQueue: true, // Automatically add to advance payment queue
+        isInBalanceQueue: false,
+        paymentHistory: [],
+        notes: createTripDto.notes || ''
       });
-
-      const savedTrip = await this.tripsRepository.save(trip);
-      return this.deserializeJsonFields(savedTrip);
+      
+      // Ensure all required fields are set
+      newTrip.margin = typeof newTrip.margin === 'number' ? newTrip.margin : 0;
+      newTrip.advanceSupplierFreight = typeof newTrip.advanceSupplierFreight === 'number' ? newTrip.advanceSupplierFreight : 0;
+      newTrip.balanceSupplierFreight = typeof newTrip.balanceSupplierFreight === 'number' ? newTrip.balanceSupplierFreight : 0;
+      
+      // Save to MongoDB
+      const savedTrip = await newTrip.save();
+      
+      console.log(`Trip ${orderNumber} created and added to advance payment queue`);
+      return savedTrip;
     } catch (error) {
       console.error('Error creating trip:', error);
-      
-      // Handle specific error cases
-      if (error.message && error.message.includes('materials')) {
-        throw new Error(`Materials validation error: ${error.message}`);
-      }
-      
-      // If there's a foreign key error, try creating without references
-      if (error.code === 'SQLITE_CONSTRAINT') {
-        console.log('Attempting to create trip without foreign key references');
-        
-        try {
-          // Create a new DTO with nullified foreign keys
-          const modifiedDto = { 
-            ...createTripDto,
-            clientId: undefined,
-            supplierId: undefined, 
-            vehicleId: undefined 
-          };
-          
-          // Create with null references
-          const trip = this.tripsRepository.create({
-            ...modifiedDto,
-            orderNumber,
-            advanceSupplierFreight,
-            balanceSupplierFreight,
-            materials: JSON.stringify(createTripDto.materials || []),
-            documents: JSON.stringify([]),
-            fieldOps: JSON.stringify(createTripDto.fieldOps || {
-              name: "Operations Team",
-              phone: "9999999999",
-              email: "ops@example.com"
-            }),
-            status: createTripDto.status || 'Booked',
-            advancePaymentStatus: createTripDto.advancePaymentStatus || 'Not Started',
-            balancePaymentStatus: createTripDto.balancePaymentStatus || 'Not Started',
-            podUploaded: false,
-          });
-          
-          const savedTrip = await this.tripsRepository.save(trip);
-          return this.deserializeJsonFields(savedTrip);
-        } catch (fallbackError) {
-          console.error('Error in fallback trip creation:', fallbackError);
-          throw new Error(`Failed to create trip: ${fallbackError.message}`);
-        }
-      }
-      
-      // For all other errors, throw with more context
-      if (error.message) {
-        throw new Error(`Trip creation failed: ${error.message}`);
-      }
-      
       throw error;
     }
   }
 
   async findAll(): Promise<Trip[]> {
-    const trips = await this.tripsRepository.find({
-      order: {
-        createdAt: 'DESC'
-      }
-    });
+    // Get trips from MongoDB
+    return this.tripModel.find().sort({ createdAt: -1 }).exec();
+  }
 
-    // Deserialize JSON fields before returning
-    return trips.map(trip => this.deserializeJsonFields(trip));
+  async findAllPaginated(page: number, limit: number): Promise<{
+    data: Trip[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const skip = (page - 1) * limit;
+    
+    // Get paginated trips with essential fields only for performance
+    const [trips, total] = await Promise.all([
+      this.tripModel
+        .find()
+        .select('id orderNumber clientId clientName supplierName vehicleNumber status advancePaymentStatus balancePaymentStatus clientFreight supplierFreight margin advanceSupplierFreight balanceSupplierFreight createdAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.tripModel.countDocuments().exec()
+    ]);
+
+    return {
+      data: trips,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   async findOne(id: string): Promise<Trip> {
     // First try to find by ID
-    let trip = await this.tripsRepository.findOne({ where: { id } });
+    let trip = await this.tripModel.findOne({ id }).exec();
     
     // If not found, try to find by orderNumber
     if (!trip) {
-      trip = await this.tripsRepository.findOne({ where: { orderNumber: id } });
+      trip = await this.tripModel.findOne({ orderNumber: id }).exec();
     }
     
     if (!trip) {
       throw new NotFoundException(`Trip with ID or Order Number ${id} not found`);
     }
     
-    return this.deserializeJsonFields(trip);
+    return trip;
   }
 
-  async update(id: string, updateTripDto: UpdateTripDto): Promise<Trip> {
-    console.log(`Attempting to update trip with ID or Order Number: ${id}`);
-    console.log(`Update data:`, JSON.stringify(updateTripDto));
-    
-    // First try to find by ID
-    let dbTrip = await this.tripsRepository.findOne({ where: { id } });
-    
-    // If not found, try to find by orderNumber
-    if (!dbTrip) {
-      console.log(`Trip not found by ID, trying with orderNumber: ${id}`);
-      dbTrip = await this.tripsRepository.findOne({ where: { orderNumber: id } });
-    }
-    
-    if (!dbTrip) {
-      console.log(`Trip not found with ID or Order Number: ${id}`);
-      throw new NotFoundException(`Trip with ID or Order Number ${id} not found`);
-    }
-    
-    console.log(`Found trip:`, JSON.stringify(dbTrip));
-    
-    // Make a copy for updating
-    const trip = { ...dbTrip };
-    
-    // Handle JSON fields separately
-    if (updateTripDto.materials) {
-      try {
-        trip.materials = JSON.stringify(updateTripDto.materials);
-        console.log(`Updated materials field`);
-      } catch (e) {
-        console.error('Error stringifying materials:', e);
-      }
-    }
-    
-    if (updateTripDto.fieldOps) {
-      try {
-        trip.fieldOps = JSON.stringify(updateTripDto.fieldOps);
-        console.log(`Updated fieldOps field`);
-      } catch (e) {
-        console.error('Error stringifying fieldOps:', e);
-      }
-    }
-    
-    if (updateTripDto.documents) {
-      try {
-        trip.documents = JSON.stringify(updateTripDto.documents);
-        console.log(`Updated documents field`);
-      } catch (e) {
-        console.error('Error stringifying documents:', e);
-      }
-    }
-    
-    // Handle additional charges
-    if (updateTripDto.additionalCharges) {
-      try {
-        trip.additionalCharges = JSON.stringify(updateTripDto.additionalCharges);
-        console.log(`Updated additionalCharges field:`, JSON.stringify(updateTripDto.additionalCharges));
-      } catch (e) {
-        console.error('Error stringifying additionalCharges:', e);
-      }
-    }
-    
-    // Handle deduction charges
-    if (updateTripDto.deductionCharges) {
-      try {
-        trip.deductionCharges = JSON.stringify(updateTripDto.deductionCharges);
-        console.log(`Updated deductionCharges field:`, JSON.stringify(updateTripDto.deductionCharges));
-      } catch (e) {
-        console.error('Error stringifying deductionCharges:', e);
-      }
-    }
-    
-    // Handle LR charges explicitly
-    if (updateTripDto.lrCharges !== undefined) {
-      console.log(`Updating lrCharges from ${trip.lrCharges} to ${updateTripDto.lrCharges}`);
-      trip.lrCharges = updateTripDto.lrCharges;
-    }
-    
-    // Update other fields
-    Object.keys(updateTripDto).forEach(key => {
-      if (!['materials', 'fieldOps', 'documents', 'additionalCharges', 'deductionCharges', 'lrCharges'].includes(key)) {
-        console.log(`Updating field ${key}: ${trip[key]} -> ${updateTripDto[key]}`);
-        trip[key] = updateTripDto[key];
-      }
-    });
-    
-    // Recalculate payment amounts if relevant fields are updated
-    if (updateTripDto.supplierFreight !== undefined || updateTripDto.advancePercentage !== undefined) {
-      const supplierFreight = updateTripDto.supplierFreight ?? trip.supplierFreight;
-      const advancePercentage = updateTripDto.advancePercentage ?? trip.advancePercentage;
-      
-      trip.advanceSupplierFreight = Number((supplierFreight * (advancePercentage / 100)).toFixed(2));
-      trip.balanceSupplierFreight = Number((supplierFreight - trip.advanceSupplierFreight).toFixed(2));
-      console.log(`Recalculated payment amounts: advance=${trip.advanceSupplierFreight}, balance=${trip.balanceSupplierFreight}`);
-    }
-    
-    // Save the updated entity
-    try {
-      console.log(`Saving updated trip:`, JSON.stringify(trip));
-      const savedTrip = await this.tripsRepository.save(trip);
-      console.log(`Trip successfully updated with ID: ${savedTrip.id}`);
-      
-      // Return with deserialized JSON
-      return this.deserializeJsonFields(savedTrip);
-    } catch (error) {
-      console.error(`Error saving trip:`, error);
-      throw error;
-    }
+  // Get trips in advance payment queue
+  async getAdvancePaymentQueue(): Promise<Trip[]> {
+    return this.tripModel.find({
+      isInAdvanceQueue: true,
+      advancePaymentStatus: { $ne: 'Paid' }
+    }).sort({ createdAt: 1 }).exec();
   }
 
-  async uploadDocument(id: string, docData: {
-    type: string;
-    number: string;
-    filename: string;
-  }): Promise<Trip> {
-    // First try to find by ID
-    let trip = await this.tripsRepository.findOne({ where: { id } });
-    
-    // If not found, try to find by orderNumber
-    if (!trip) {
-      trip = await this.tripsRepository.findOne({ where: { orderNumber: id } });
-    }
-    
-    if (!trip) {
-      throw new NotFoundException(`Trip with ID or Order Number ${id} not found`);
-    }
-    
-    const newDoc: any = {
-      id: uuidv4(),
-      ...docData,
-      uploadDate: new Date().toISOString().split('T')[0],
-    };
-    
-    // Parse existing documents
-    let documentsArray: any[] = [];
-    try {
-      if (trip.documents) {
-        documentsArray = JSON.parse(trip.documents);
-      }
-      
-      // Ensure documentsArray is an array
-      if (!Array.isArray(documentsArray)) {
-        documentsArray = [];
-      }
-    } catch (e) {
-      console.error('Error parsing documents:', e);
-      // Initialize as empty array if parsing fails
-      documentsArray = [];
-    }
-    
-    // Add new document
-    documentsArray.push(newDoc);
-    
-    // Store back as JSON string
-    trip.documents = JSON.stringify(documentsArray);
-    
-    // Update POD status if applicable
-    if (docData.type === 'POD') {
-      trip.podUploaded = true;
-    }
-    
-    const savedTrip = await this.tripsRepository.save(trip);
-    return this.deserializeJsonFields(savedTrip);
+  // Get trips in balance payment queue
+  async getBalancePaymentQueue(): Promise<Trip[]> {
+    return this.tripModel.find({
+      isInBalanceQueue: true,
+      balancePaymentStatus: { $ne: 'Paid' },
+      podUploaded: true
+    }).sort({ podDate: 1 }).exec();
   }
 
-  async remove(id: string): Promise<void> {
-    // First try to find by ID
-    let trip = await this.tripsRepository.findOne({ where: { id } });
-    
-    // If not found, try to find by orderNumber
-    if (!trip) {
-      trip = await this.tripsRepository.findOne({ where: { orderNumber: id } });
-    }
-    
-    if (!trip) {
-      throw new NotFoundException(`Trip with ID or Order Number ${id} not found`);
-    }
-    
-    // Delete using the actual ID
-    const result = await this.tripsRepository.delete(trip.id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Failed to delete trip with ID ${trip.id}`);
-    }
-  }
-  
-  // Helper to deserialize JSON fields stored as strings
-  private deserializeJsonFields(trip: Trip): any {
-    try {
-      const result: any = { ...trip };
-      
-      // Deserialize materials if present
-      if (trip.materials) {
-        try {
-          result.materials = JSON.parse(trip.materials);
-        } catch (e) {
-          console.error('Error parsing materials:', e);
-          result.materials = [];
-        }
-      } else {
-        result.materials = [];
-      }
-      
-      // Deserialize documents if present
-      if (trip.documents) {
-        try {
-          result.documents = JSON.parse(trip.documents);
-        } catch (e) {
-          console.error('Error parsing documents:', e);
-          result.documents = [];
-        }
-      } else {
-        result.documents = [];
-      }
-      
-      // Deserialize fieldOps if present
-      if (trip.fieldOps) {
-        try {
-          result.fieldOps = JSON.parse(trip.fieldOps);
-        } catch (e) {
-          console.error('Error parsing fieldOps:', e);
-          result.fieldOps = {
-            name: "Operations Team",
-            phone: "9999999999",
-            email: "ops@example.com"
-          };
-        }
-      } else {
-        result.fieldOps = {
-          name: "Operations Team",
-          phone: "9999999999",
-          email: "ops@example.com"
-        };
-      }
-      
-      // Deserialize additionalCharges if present
-      if (trip.additionalCharges) {
-        try {
-          result.additionalCharges = JSON.parse(trip.additionalCharges);
-        } catch (e) {
-          console.error('Error parsing additionalCharges:', e);
-          result.additionalCharges = [];
-        }
-      } else {
-        result.additionalCharges = [];
-      }
-      
-      // Deserialize deductionCharges if present
-      if (trip.deductionCharges) {
-        try {
-          result.deductionCharges = JSON.parse(trip.deductionCharges);
-        } catch (e) {
-          console.error('Error parsing deductionCharges:', e);
-          result.deductionCharges = [];
-        }
-      } else {
-        result.deductionCharges = [];
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Error deserializing trip data:', error);
-      return trip; // Return as-is if there's an error
-    }
-  }
-
-  // Special method for updating payment statuses with better handling
+  // Real-time payment status update with automatic workflow management
   async updatePaymentStatus(id: string, paymentData: {
     advancePaymentStatus?: string;
     balancePaymentStatus?: string;
     utrNumber?: string;
     paymentMethod?: string;
   }): Promise<Trip> {
-    console.log(`🚨 Updating payment status for trip ${id} with data:`, JSON.stringify(paymentData));
+    console.log(`Real-time payment update for trip: ${id}`);
+    console.log(`Payment data:`, JSON.stringify(paymentData));
     
-    // First try to find by ID
-    let dbTrip = await this.tripsRepository.findOne({ where: { id } });
+    const trip = await this.findOne(id);
+    const updateData: any = { ...paymentData };
+    const currentTime = new Date();
     
-    // If not found, try to find by orderNumber
-    if (!dbTrip) {
-      console.log(`Trip not found by ID, trying with orderNumber: ${id}`);
-      dbTrip = await this.tripsRepository.findOne({ where: { orderNumber: id } });
+    // Handle advance payment status changes
+    if (paymentData.advancePaymentStatus) {
+      const newStatus = paymentData.advancePaymentStatus;
+      const oldStatus = trip.advancePaymentStatus;
+      
+      // Update timestamps
+      if (newStatus === 'Initiated' && oldStatus === 'Not Started') {
+        updateData.advancePaymentInitiatedAt = currentTime;
+      } else if (newStatus === 'Paid') {
+        updateData.advancePaymentCompletedAt = currentTime;
+        updateData.paymentDate = currentTime;
+        updateData.status = 'In Transit'; // Auto-update trip status
+        updateData.isInAdvanceQueue = false; // Remove from advance queue
+        updateData.isInBalanceQueue = true; // Add to balance queue
+        
+        console.log(`Advance payment completed - Trip ${trip.orderNumber} moved to In Transit`);
+      }
+      
+      // Add to payment history
+      if (!trip.paymentHistory) trip.paymentHistory = [];
+      trip.paymentHistory.push({
+        paymentType: 'advance',
+        status: newStatus,
+        amount: trip.advanceSupplierFreight,
+        timestamp: currentTime,
+        utrNumber: paymentData.utrNumber,
+        paymentMethod: paymentData.paymentMethod
+      });
+      updateData.paymentHistory = trip.paymentHistory;
     }
     
-    if (!dbTrip) {
+    // Handle balance payment status changes
+    if (paymentData.balancePaymentStatus) {
+      const newStatus = paymentData.balancePaymentStatus;
+      const oldStatus = trip.balancePaymentStatus;
+      
+      // Ensure POD is uploaded before processing balance payment
+      if (newStatus !== 'Not Started' && !trip.podUploaded) {
+        throw new BadRequestException('POD document must be uploaded before processing balance payment');
+      }
+      
+      // Update timestamps
+      if (newStatus === 'Initiated' && oldStatus === 'Not Started') {
+        updateData.balancePaymentInitiatedAt = currentTime;
+      } else if (newStatus === 'Paid') {
+        updateData.balancePaymentCompletedAt = currentTime;
+        updateData.paymentDate = currentTime;
+        updateData.status = 'Completed'; // Auto-update trip status
+        updateData.isInBalanceQueue = false; // Remove from balance queue
+        
+        console.log(`Balance payment completed - Trip ${trip.orderNumber} marked as Completed`);
+      }
+      
+      // Add to payment history
+      if (!trip.paymentHistory) trip.paymentHistory = [];
+      trip.paymentHistory.push({
+        paymentType: 'balance',
+        status: newStatus,
+        amount: trip.balanceSupplierFreight,
+        timestamp: currentTime,
+        utrNumber: paymentData.utrNumber,
+        paymentMethod: paymentData.paymentMethod
+      });
+      updateData.paymentHistory = trip.paymentHistory;
+    }
+    
+    // Update the trip
+    const updatedTrip = await this.tripModel.findOneAndUpdate(
+      { id: trip.id },
+      { $set: updateData },
+      { new: true }
+    ).exec();
+    
+    if (!updatedTrip) {
+      throw new NotFoundException(`Failed to update trip with ID ${id}`);
+    }
+    
+    return updatedTrip;
+  }
+
+  // Enhanced POD upload with automatic balance queue management
+  async uploadPOD(id: string, podData: {
+    filename: string;
+    url: string;
+  }): Promise<Trip> {
+    const trip = await this.findOne(id);
+    
+    if (trip.status !== 'In Transit') {
+      throw new BadRequestException('POD can only be uploaded for trips in In Transit status');
+    }
+    
+    if (trip.advancePaymentStatus !== 'Paid') {
+      throw new BadRequestException('Advance payment must be completed before uploading POD');
+    }
+    
+    const updateData = {
+      podUploaded: true,
+      podDate: new Date(),
+      podDocument: {
+        filename: podData.filename,
+        url: podData.url,
+        uploadedAt: new Date(),
+        isDownloadable: true
+      },
+      isInBalanceQueue: true // Automatically add to balance payment queue
+    };
+    
+    const updatedTrip = await this.tripModel.findOneAndUpdate(
+      { id: trip.id },
+      { $set: updateData },
+      { new: true }
+    ).exec();
+    
+    if (!updatedTrip) {
+      throw new NotFoundException(`Failed to update trip with ID ${id}`);
+    }
+    
+    console.log(`POD uploaded for trip ${trip.orderNumber} - Added to balance payment queue`);
+    return updatedTrip;
+  }
+
+  async update(id: string, updateTripDto: UpdateTripDto): Promise<Trip> {
+    console.log(`Attempting to update trip with ID or Order Number: ${id}`);
+    console.log(`Update data:`, JSON.stringify(updateTripDto));
+    
+    // First try to find and update by ID
+    let updatedTrip = await this.tripModel.findOneAndUpdate(
+      { id },
+      { $set: updateTripDto },
+      { new: true }
+    ).exec();
+    
+    // If not found, try to find and update by orderNumber
+    if (!updatedTrip) {
+      console.log(`Trip not found by ID, trying with orderNumber: ${id}`);
+      updatedTrip = await this.tripModel.findOneAndUpdate(
+        { orderNumber: id },
+        { $set: updateTripDto },
+        { new: true }
+      ).exec();
+    }
+    
+    if (!updatedTrip) {
       console.log(`Trip not found with ID or Order Number: ${id}`);
       throw new NotFoundException(`Trip with ID or Order Number ${id} not found`);
     }
     
-    console.log(`Found trip for payment update:`, JSON.stringify({
-      id: dbTrip.id,
-      orderNumber: dbTrip.orderNumber,
-      currentStatus: dbTrip.status,
-      currentAdvanceStatus: dbTrip.advancePaymentStatus,
-      currentBalanceStatus: dbTrip.balancePaymentStatus
-    }));
+    return updatedTrip;
+  }
+
+  async uploadDocument(id: string, docData: {
+    type: string;
+    number?: string;
+    filename?: string;
+    url?: string;
+  }): Promise<Trip> {
+    // Find the trip
+    const trip = await this.findOne(id);
     
-    // Make a copy for updating
-    const trip = { ...dbTrip };
-    
-    // Update payment statuses
-    if (paymentData.advancePaymentStatus) {
-      console.log(`Updating advance payment status: ${trip.advancePaymentStatus} -> ${paymentData.advancePaymentStatus}`);
-      trip.advancePaymentStatus = paymentData.advancePaymentStatus;
-      
-      // If advance payment is marked as Paid and trip is in Booked status, update trip status to In Transit
-      if (paymentData.advancePaymentStatus === 'Paid' && trip.status === 'Booked') {
-        console.log(`Advance payment marked as Paid, updating trip status: ${trip.status} -> In Transit`);
-        trip.status = 'In Transit';
-      }
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${id} not found`);
     }
     
-    if (paymentData.balancePaymentStatus) {
-      console.log(`Updating balance payment status: ${trip.balancePaymentStatus} -> ${paymentData.balancePaymentStatus}`);
-      trip.balancePaymentStatus = paymentData.balancePaymentStatus;
-      
-      // If balance payment is marked as Paid and trip is in In Transit or Delivered status, update trip status to Completed
-      if (paymentData.balancePaymentStatus === 'Paid' && 
-          (trip.status === 'In Transit' || trip.status === 'Delivered')) {
-        console.log(`Balance payment marked as Paid, updating trip status: ${trip.status} -> Completed`);
-        trip.status = 'Completed';
-      }
+    // Create the new document object with a generated URL if not provided
+    const newDocument = {
+      type: docData.type,
+      url: docData.url || `https://storage.example.com/documents/${id}/${Date.now()}`,
+      uploadedAt: new Date(),
+      filename: docData.filename,
+      isDownloadable: true
+    };
+    
+    // Add the document to the trip
+    const updatedTrip = await this.tripModel.findOneAndUpdate(
+      { id: trip.id },
+      { $push: { documents: newDocument } },
+      { new: true }
+    ).exec();
+    
+    if (!updatedTrip) {
+      throw new NotFoundException(`Failed to update trip with ID ${id}`);
     }
     
-    // Update other payment-related fields
+    return updatedTrip;
+  }
+
+  async remove(id: string): Promise<void> {
+    // First try to delete by ID
+    let result = await this.tripModel.deleteOne({ id }).exec();
+    
+    // If not found, try to delete by orderNumber
+    if (result.deletedCount === 0) {
+      result = await this.tripModel.deleteOne({ orderNumber: id }).exec();
+    }
+    
+    if (result.deletedCount === 0) {
+      throw new NotFoundException(`Trip with ID or Order Number ${id} not found`);
+    }
+  }
+
+  // Streamlined payment processing method
+  async processPayment(id: string, paymentData: {
+    paymentType: 'advance' | 'balance';
+    paymentStatus: 'Initiated' | 'Pending' | 'Paid';
+    utrNumber?: string;
+    paymentMethod?: string;
+    notes?: string;
+  }): Promise<Trip> {
+    const trip = await this.findOne(id);
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${id} not found`);
+    }
+
+    // Validate payment flow
+    if (paymentData.paymentType === 'balance') {
+      if (trip.advancePaymentStatus !== 'Paid') {
+        throw new BadRequestException('Advance payment must be completed before processing balance payment');
+      }
+      if (!trip.podUploaded) {
+        throw new BadRequestException('POD must be uploaded before processing balance payment');
+      }
+    }
+
+    // Create the update object
+    const updateData: any = {};
+    const currentTime = new Date();
+    
+    if (paymentData.paymentType === 'advance') {
+      updateData.advancePaymentStatus = paymentData.paymentStatus;
+      
+      if (paymentData.paymentStatus === 'Paid') {
+        updateData.status = 'In Transit';
+        updateData.isInAdvanceQueue = false;
+        updateData.isInBalanceQueue = true;
+        updateData.advancePaymentCompletedAt = currentTime;
+      } else if (paymentData.paymentStatus === 'Initiated') {
+        updateData.advancePaymentInitiatedAt = currentTime;
+      }
+    } else {
+      updateData.balancePaymentStatus = paymentData.paymentStatus;
+      
+      if (paymentData.paymentStatus === 'Paid') {
+        updateData.status = 'Completed';
+        updateData.isInBalanceQueue = false;
+        updateData.balancePaymentCompletedAt = currentTime;
+      } else if (paymentData.paymentStatus === 'Initiated') {
+        updateData.balancePaymentInitiatedAt = currentTime;
+      }
+    }
+
+    // Add payment details
     if (paymentData.utrNumber) {
-      console.log(`Updating UTR number: ${trip.utrNumber} -> ${paymentData.utrNumber}`);
-      trip.utrNumber = paymentData.utrNumber;
+      updateData.utrNumber = paymentData.utrNumber;
     }
     
     if (paymentData.paymentMethod) {
-      console.log(`Updating payment method: ${trip.paymentMethod} -> ${paymentData.paymentMethod}`);
-      trip.paymentMethod = paymentData.paymentMethod;
+      updateData.paymentMethod = paymentData.paymentMethod;
     }
     
-    // Save the updated entity
-    try {
-      console.log(`Saving payment updates for trip:`, JSON.stringify({
-        id: trip.id,
-        orderNumber: trip.orderNumber,
-        newStatus: trip.status,
-        newAdvanceStatus: trip.advancePaymentStatus,
-        newBalanceStatus: trip.balancePaymentStatus,
-        utrNumber: trip.utrNumber,
-        paymentMethod: trip.paymentMethod
-      }));
-      
-      const savedTrip = await this.tripsRepository.save(trip);
-      console.log(`🎉 Payment successfully updated for trip ID: ${savedTrip.id}`);
-      
-      // Return with deserialized JSON
-      return this.deserializeJsonFields(savedTrip);
-    } catch (error) {
-      console.error(`❌ Error saving payment updates:`, error);
-      throw error;
+    if (paymentData.paymentStatus === 'Paid') {
+      updateData.paymentDate = currentTime;
     }
+
+    // Add to payment history
+    const paymentHistoryEntry = {
+      paymentType: paymentData.paymentType,
+      status: paymentData.paymentStatus,
+      amount: paymentData.paymentType === 'advance' ? trip.advanceSupplierFreight : trip.balanceSupplierFreight,
+      timestamp: currentTime,
+      utrNumber: paymentData.utrNumber,
+      paymentMethod: paymentData.paymentMethod,
+      notes: paymentData.notes
+    };
+
+    updateData.$push = { paymentHistory: paymentHistoryEntry };
+
+    // Update the trip
+    const updatedTrip = await this.tripModel.findOneAndUpdate(
+      { id: trip.id },
+      updateData,
+      { new: true }
+    ).exec();
+    
+    if (!updatedTrip) {
+      throw new NotFoundException(`Failed to update trip with ID ${id}`);
+    }
+
+    console.log(`Payment processed: ${paymentData.paymentType} payment ${paymentData.paymentStatus} for trip ${trip.orderNumber}`);
+    return updatedTrip;
+  }
+
+  // Update additional charges method
+  async updateAdditionalCharges(id: string, chargesData: {
+    additionalCharges: { description: string; amount: number; reason?: string }[];
+    deductionCharges: { description: string; amount: number; reason?: string }[];
+    newBalanceAmount: number;
+    reason?: string;
+    addedBy?: string;
+  }): Promise<Trip> {
+    console.log(`Updating additional charges for trip: ${id}`);
+    console.log(`Charges data:`, JSON.stringify(chargesData));
+
+    const trip = await this.findOne(id);
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID ${id} not found`);
+    }
+
+    // Validate that advance payment is completed before allowing charge modifications
+    if (trip.advancePaymentStatus !== 'Paid') {
+      throw new BadRequestException('Additional charges can only be modified after advance payment is completed');
+    }
+
+    const currentTime = new Date();
+
+    // Process additional charges
+    const additionalCharges = chargesData.additionalCharges.map(charge => ({
+      description: charge.description,
+      amount: charge.amount,
+      reason: charge.reason || chargesData.reason || 'Additional charge',
+      addedAt: currentTime,
+      addedBy: chargesData.addedBy || 'system'
+    }));
+
+    // Process deduction charges
+    const deductionCharges = chargesData.deductionCharges.map(charge => ({
+      description: charge.description,
+      amount: charge.amount,
+      reason: charge.reason || chargesData.reason || 'Deduction charge',
+      addedAt: currentTime,
+      addedBy: chargesData.addedBy || 'system'
+    }));
+
+    // Calculate totals
+    const totalAdditionalCharges = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+    const totalDeductionCharges = deductionCharges.reduce((sum, charge) => sum + charge.amount, 0);
+
+    // Extract specific charge amounts for easier queries
+    const lrCharges = deductionCharges
+      .filter(charge => charge.description.toLowerCase().includes('lr'))
+      .reduce((sum, charge) => sum + charge.amount, 0);
+
+    const platformFees = deductionCharges
+      .filter(charge => charge.description.toLowerCase().includes('platform'))
+      .reduce((sum, charge) => sum + charge.amount, 0);
+
+    const miscellaneousCharges = deductionCharges
+      .filter(charge => 
+        !charge.description.toLowerCase().includes('lr') && 
+        !charge.description.toLowerCase().includes('platform')
+      )
+      .reduce((sum, charge) => sum + charge.amount, 0);
+
+    // Build charges history entries
+    const chargesHistory = [
+      ...additionalCharges.map(charge => ({
+        action: 'add' as const,
+        chargeType: 'additional' as const,
+        description: charge.description,
+        amount: charge.amount,
+        reason: charge.reason,
+        timestamp: currentTime,
+        addedBy: charge.addedBy
+      })),
+      ...deductionCharges.map(charge => ({
+        action: 'add' as const,
+        chargeType: 'deduction' as const,
+        description: charge.description,
+        amount: charge.amount,
+        reason: charge.reason,
+        timestamp: currentTime,
+        addedBy: charge.addedBy
+      }))
+    ];
+
+    // Prepare update data
+    const updateData = {
+      additionalCharges,
+      deductionCharges,
+      totalAdditionalCharges,
+      totalDeductionCharges,
+      lrCharges,
+      platformFees,
+      miscellaneousCharges,
+      balanceSupplierFreight: chargesData.newBalanceAmount,
+      $push: {
+        chargesHistory: { $each: chargesHistory }
+      }
+    };
+
+    console.log(`Update data:`, JSON.stringify(updateData, null, 2));
+
+    // Update the trip
+    const updatedTrip = await this.tripModel.findOneAndUpdate(
+      { id: trip.id },
+      updateData,
+      { new: true }
+    ).exec();
+
+    if (!updatedTrip) {
+      throw new NotFoundException(`Failed to update trip with ID ${id}`);
+    }
+
+    console.log(`Additional charges updated successfully for trip ${trip.orderNumber}`);
+    console.log(`- Total additional charges: ₹${totalAdditionalCharges}`);
+    console.log(`- Total deduction charges: ₹${totalDeductionCharges}`);
+    console.log(`- Updated balance amount: ₹${chargesData.newBalanceAmount}`);
+
+    return updatedTrip;
+  }
+
+  // ⚡ Ultra-fast trip loading with database joins (Future implementation)
+  async getTripsUltraFast(options: {
+    skip: number;
+    limit: number;
+    status?: string;
+    clientId?: string;
+  }): Promise<{ trips: Trip[]; total: number }> {
+    const { skip, limit, status, clientId } = options;
+    
+    // Build query filters
+    const query: any = {};
+    if (status) {
+      query.status = status;
+    }
+    if (clientId) {
+      query.clientId = clientId;
+    }
+    
+    // Execute optimized query with minimal fields for maximum speed
+    const [trips, total] = await Promise.all([
+      this.tripModel
+        .find(query)
+        .select('id orderNumber clientId clientName supplierName vehicleNumber status advancePaymentStatus balancePaymentStatus clientFreight supplierFreight advanceSupplierFreight balanceSupplierFreight source destination createdAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean() // Use lean for better performance
+        .exec(),
+      this.tripModel.countDocuments(query).exec()
+    ]);
+
+    return { trips, total };
+  }
+
+  // ⚡ Ultra-fast single trip loading with all related data
+  async getTripUltraFast(id: string): Promise<Trip> {
+    // Use lean query for maximum speed
+    let trip = await this.tripModel
+      .findOne({ $or: [{ id }, { orderNumber: id }] })
+      .lean()
+      .exec();
+    
+    if (!trip) {
+      throw new NotFoundException(`Trip with ID or Order Number ${id} not found`);
+    }
+    
+    return trip;
+  }
+
+  // ⚡ Ultra-fast dashboard data aggregation
+  async getDashboardDataUltraFast(): Promise<{
+    stats: any;
+    recentTrips: Trip[];
+  }> {
+    // Use aggregation pipeline for maximum speed
+    const [statsResult, recentTrips] = await Promise.all([
+      this.tripModel.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalTrips: { $sum: 1 },
+            bookedTrips: {
+              $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] }
+            },
+            inTransitTrips: {
+              $sum: { $cond: [{ $eq: ['$status', 'In Transit'] }, 1, 0] }
+            },
+            completedTrips: {
+              $sum: { $cond: [{ $eq: ['$status', 'Completed'] }, 1, 0] }
+            },
+            pendingAdvancePayments: {
+              $sum: { $cond: [{ $ne: ['$advancePaymentStatus', 'Paid'] }, 1, 0] }
+            },
+            pendingBalancePayments: {
+              $sum: { 
+                $cond: [
+                  { 
+                    $and: [
+                      { $ne: ['$balancePaymentStatus', 'Paid'] },
+                      { $eq: ['$advancePaymentStatus', 'Paid'] }
+                    ]
+                  }, 
+                  1, 
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ]).exec(),
+      this.tripModel
+        .find()
+        .select('id orderNumber status clientName supplierName vehicleNumber advancePaymentStatus balancePaymentStatus createdAt')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean()
+        .exec()
+    ]);
+
+    const stats = statsResult[0] || {
+      totalTrips: 0,
+      bookedTrips: 0,
+      inTransitTrips: 0,
+      completedTrips: 0,
+      pendingAdvancePayments: 0,
+      pendingBalancePayments: 0
+    };
+
+    return { stats, recentTrips };
+  }
+
+  // Update trip status method
+  async updateStatus(id: string, status: string): Promise<Trip> {
+    const trip = await this.findOne(id);
+    
+    const updateData: any = {
+      status,
+      updatedAt: new Date()
+    };
+    
+    // Handle status transitions with payment status changes
+    if (status === 'In Transit' && trip.advancePaymentStatus !== 'Paid') {
+      throw new BadRequestException('Cannot change status to In Transit without completing advance payment');
+    }
+    
+    if (status === 'Completed' && trip.balancePaymentStatus !== 'Paid') {
+      // Auto-initiate balance payment if not already done
+      if (trip.balancePaymentStatus === 'Not Started') {
+        updateData.balancePaymentStatus = 'Initiated';
+        updateData.isInBalanceQueue = true;
+      }
+    }
+    
+    const updatedTrip = await this.tripModel.findOneAndUpdate(
+      { id: trip.id },
+      { $set: updateData },
+      { new: true }
+    ).exec();
+    
+    if (!updatedTrip) {
+      throw new NotFoundException(`Failed to update trip with ID ${id}`);
+    }
+    
+    return updatedTrip;
   }
 }

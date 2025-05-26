@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -19,21 +19,34 @@ export class ClientsController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id') id: string) {
     return this.clientsService.findOne(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() updateClientDto: UpdateClientDto,
   ) {
     return this.clientsService.update(id, updateClientDto);
   }
 
+  @Post(':id/documents')
+  uploadDocument(
+    @Param('id') id: string,
+    @Body() docData: { 
+      type: string; 
+      url: string;
+      number?: string;
+      filename?: string;
+    }
+  ) {
+    return this.clientsService.uploadDocument(id, docData);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id') id: string) {
     return this.clientsService.remove(id);
   }
 }

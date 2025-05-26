@@ -1,19 +1,21 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule, seedDatabase } from './app.module';
+import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { MongoSeeder } from './database/mongo-seeder';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   // Enable CORS
   app.enableCors({
-    origin: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: 'Content-Type,Accept,Authorization',
+    origin: true, // Allow all origins or specify your frontend URL
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
+    allowedHeaders: 'Content-Type,Accept,Authorization',
+    exposedHeaders: 'Content-Disposition',
   });
   
-  // Set global path prefix
+  // Set global prefix for all routes
   app.setGlobalPrefix('api');
   
   // Enable validation
@@ -25,13 +27,14 @@ async function bootstrap() {
   
   // Start the server
   await app.listen(process.env.PORT ?? 3000);
-  console.log(`Application running on: ${await app.getUrl()}`);
+  console.log(`Application is running on: ${await app.getUrl()}`);
   
-  // Seed the database with initial data
+  // Seed the MongoDB database with initial data
   try {
-    await seedDatabase(app);
+    const mongoSeeder = app.get(MongoSeeder);
+    await mongoSeeder.seed();
   } catch (error) {
-    console.error('Error seeding database:', error);
+    console.error('Error seeding MongoDB database:', error);
   }
 }
 bootstrap();

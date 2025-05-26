@@ -14,5 +14,15 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  mongodb:
+    image: mongo:latest
+    container_name: freight-flow-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
 volumes:
-  postgres_data: 
+  postgres_data:
+  mongodb_data: 

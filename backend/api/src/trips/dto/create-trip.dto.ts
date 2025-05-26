@@ -1,111 +1,143 @@
-import { IsArray, IsBoolean, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsDate, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateTripDto {
-  @IsArray()
-  @IsString({ each: true })
-  @IsNotEmpty({ each: true })
-  lrNumbers: string[];
+  @IsString()
+  @IsOptional()
+  id?: string;
 
   @IsString()
   @IsOptional()
-  clientId?: string;
+  orderNumber?: string;
 
   @IsString()
   @IsNotEmpty()
-  clientName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  clientAddress: string;
-
-  @IsString()
-  @IsNotEmpty()
-  clientAddressType: string;
-
-  @IsString()
-  @IsNotEmpty()
-  clientCity: string;
-
-  @IsString()
-  @IsNotEmpty()
-  destinationAddress: string;
-
-  @IsString()
-  @IsNotEmpty()
-  destinationCity: string;
-
-  @IsString()
-  @IsNotEmpty()
-  destinationAddressType: string;
+  clientId: string;
 
   @IsString()
   @IsOptional()
-  supplierId?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  supplierName: string;
+  clientName?: string;
 
   @IsString()
   @IsOptional()
   vehicleId?: string;
 
   @IsString()
-  @IsNotEmpty()
-  vehicleNumber: string;
+  @IsOptional()
+  vehicleNumber?: string;
 
   @IsString()
   @IsOptional()
-  driverName?: string;
+  vehicleType?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  supplierId: string;
 
   @IsString()
   @IsOptional()
-  driverPhone?: string;
+  supplierName?: string;
 
   @IsString()
   @IsNotEmpty()
-  vehicleType: string;
+  source: string;
 
   @IsString()
   @IsNotEmpty()
-  vehicleSize: string;
+  destination: string;
 
-  @IsString()
-  @IsNotEmpty()
-  vehicleCapacity: string;
+  @IsNumber()
+  @IsOptional()
+  distance?: number;
 
-  @IsString()
+  @IsDate()
+  @Type(() => Date)
   @IsNotEmpty()
-  axleType: string;
+  startDate: Date;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  endDate?: Date;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  loadingDate?: Date;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  unloadingDate?: Date;
+
+  @IsObject()
+  @IsOptional()
+  pricing?: {
+    baseAmount: number;
+    gst: number;
+    totalAmount: number;
+  };
+
+  @IsNumber()
+  @IsOptional()
+  baseAmount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  gst?: number;
+
+  @IsNumber()
+  @IsOptional()
+  totalAmount?: number;
 
   @IsArray()
   @IsObject({ each: true })
-  materials: {
-    name: string;
-    weight: number;
-    unit: string;
-    ratePerMT: number;
+  @IsOptional()
+  documents?: {
+    type: string;
+    url: string;
+    uploadedAt: Date;
   }[];
 
   @IsString()
-  @IsNotEmpty()
-  pickupDate: string;
+  @IsOptional()
+  status?: string = 'Scheduled';
+
+  @IsNumber()
+  @IsOptional()
+  clientFreight?: number;
+
+  @IsNumber()
+  @IsOptional()
+  supplierFreight?: number;
+
+  @IsNumber()
+  @IsOptional()
+  advancePercentage?: number;
+
+  @IsNumber()
+  @IsOptional()
+  margin: number = 0;
+
+  @IsNumber()
+  @IsOptional()
+  advanceSupplierFreight: number = 0;
+
+  @IsNumber()
+  @IsOptional()
+  balanceSupplierFreight: number = 0;
 
   @IsString()
-  @IsNotEmpty()
-  pickupTime: string;
+  @IsOptional()
+  advancePaymentStatus?: string;
 
-  @IsNumber()
-  clientFreight: number;
-
-  @IsNumber()
-  supplierFreight: number;
-
-  @IsNumber()
-  advancePercentage: number;
+  @IsString()
+  @IsOptional()
+  balancePaymentStatus?: string;
 
   @IsObject()
-  fieldOps: {
+  @IsOptional()
+  fieldOps?: {
     name: string;
     phone: string;
     email: string;
@@ -116,14 +148,6 @@ export class CreateTripDto {
   gsmTracking?: boolean;
 
   @IsString()
-  @IsNotEmpty()
-  status: string = 'Booked';
-
-  @IsString()
-  @IsNotEmpty()
-  advancePaymentStatus: string = 'Not Started';
-
-  @IsString()
-  @IsNotEmpty()
-  balancePaymentStatus: string = 'Not Started';
+  @IsOptional()
+  notes?: string;
 } 

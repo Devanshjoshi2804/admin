@@ -1,164 +1,165 @@
-import { OmitType, PartialType } from '@nestjs/mapped-types';
+import { PartialType } from '@nestjs/mapped-types';
 import { CreateTripDto } from './create-trip.dto';
-import { IsArray, IsBoolean, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsDate, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
 
-export class UpdateTripDto extends PartialType(OmitType(CreateTripDto, [] as const)) {
+export class UpdateTripDto extends PartialType(CreateTripDto) {
+  @IsString()
+  @IsOptional()
+  id?: string;
+
+  @IsString()
+  @IsOptional()
+  orderNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  clientId?: string;
+
+  @IsString()
+  @IsOptional()
+  clientName?: string;
+
+  @IsString()
+  @IsOptional()
+  vehicleId?: string;
+
+  @IsString()
+  @IsOptional()
+  vehicleNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  vehicleType?: string;
+
+  @IsString()
+  @IsOptional()
+  supplierId?: string;
+
+  @IsString()
+  @IsOptional()
+  supplierName?: string;
+
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsString()
+  @IsOptional()
+  destination?: string;
+
+  @IsNumber()
+  @IsOptional()
+  distance?: number;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  startDate?: Date;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  endDate?: Date;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  loadingDate?: Date;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  unloadingDate?: Date;
+
+  @IsObject()
+  @IsOptional()
+  pricing?: {
+    baseAmount: number;
+    gst: number;
+    totalAmount: number;
+  };
+
+  @IsNumber()
+  @IsOptional()
+  baseAmount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  gst?: number;
+
+  @IsNumber()
+  @IsOptional()
+  totalAmount?: number;
+
   @IsArray()
   @IsObject({ each: true })
   @IsOptional()
   documents?: {
-    id: string;
     type: string;
-    number: string;
-    filename: string;
-    uploadDate: string;
-    expiryDate?: string;
+    url: string;
+    uploadedAt: Date;
   }[];
 
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  lrNumbers?: string[];
-
-  @IsOptional()
   @IsString()
-  clientId?: string;
-
   @IsOptional()
-  @IsString()
-  clientName?: string;
-
-  @IsOptional()
-  @IsString()
-  clientAddress?: string;
-
-  @IsOptional()
-  @IsString()
-  clientAddressType?: string;
-
-  @IsOptional()
-  @IsString()
-  clientCity?: string;
-
-  @IsOptional()
-  @IsString()
-  destinationAddress?: string;
-
-  @IsOptional()
-  @IsString()
-  destinationCity?: string;
-
-  @IsOptional()
-  @IsString()
-  destinationAddressType?: string;
-
-  @IsOptional()
-  @IsString()
-  supplierId?: string;
-
-  @IsOptional()
-  @IsString()
-  supplierName?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleId?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleNumber?: string;
-
-  @IsOptional()
-  @IsString()
-  driverName?: string;
-
-  @IsOptional()
-  @IsString()
-  driverPhone?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleType?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleSize?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleCapacity?: string;
-
-  @IsOptional()
-  @IsString()
-  axleType?: string;
-
-  @IsOptional()
-  @IsArray()
-  materials?: any[];
-
-  @IsOptional()
-  @IsString()
-  pickupDate?: string;
-
-  @IsOptional()
-  @IsString()
-  pickupTime?: string;
-
-  @IsOptional()
-  @IsNumber()
-  clientFreight?: number;
-
-  @IsOptional()
-  @IsNumber()
-  supplierFreight?: number;
-
-  @IsOptional()
-  @IsNumber()
-  advancePercentage?: number;
-
-  @IsOptional()
-  @IsObject()
-  fieldOps?: {
-    name: string;
-    phone: string;
-    email: string;
-  };
-
-  @IsOptional()
-  @IsBoolean()
-  gsmTracking?: boolean;
-
-  @IsOptional()
-  @IsString()
   status?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @IsString()
+  @IsOptional()
   advancePaymentStatus?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   balancePaymentStatus?: string;
 
-  @IsOptional()
   @IsNumber()
-  lrCharges?: number;
-  
   @IsOptional()
-  @IsBoolean()
-  podUploaded?: boolean;
-  
+  clientFreight?: number;
+
+  @IsNumber()
   @IsOptional()
+  supplierFreight?: number;
+
+  @IsNumber()
+  @IsOptional()
+  advancePercentage?: number;
+
+  @IsNumber()
+  @IsOptional()
+  margin?: number;
+
+  @IsNumber()
+  @IsOptional()
+  advanceSupplierFreight?: number;
+
+  @IsNumber()
+  @IsOptional()
+  balanceSupplierFreight?: number;
+
   @IsString()
+  @IsOptional()
   utrNumber?: string;
-  
-  @IsOptional()
+
   @IsString()
+  @IsOptional()
   paymentMethod?: string;
-  
+
+  @IsDate()
+  @Type(() => Date)
   @IsOptional()
-  additionalCharges?: any[];
-  
+  paymentDate?: Date;
+
+  @IsBoolean()
   @IsOptional()
-  deductionCharges?: any[];
+  podUploaded?: boolean;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsOptional()
+  podDate?: Date;
 } 

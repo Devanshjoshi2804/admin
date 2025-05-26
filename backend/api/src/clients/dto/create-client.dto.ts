@@ -2,6 +2,10 @@ import { IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateClientDto {
   @IsString()
+  @IsOptional()
+  id?: string;
+
+  @IsString()
   @IsNotEmpty()
   name: string;
 
@@ -14,8 +18,8 @@ export class CreateClientDto {
   address: string;
 
   @IsString()
-  @IsNotEmpty()
-  addressType: string;
+  @IsOptional()
+  addressType?: string;
 
   @IsString()
   @IsOptional()
@@ -28,17 +32,17 @@ export class CreateClientDto {
   @IsObject()
   @IsOptional()
   logisticsPOC?: {
-    name: string;
-    phone: string;
-    email: string;
+    name?: string;
+    phone?: string;
+    email?: string;
   };
 
   @IsObject()
   @IsOptional()
   financePOC?: {
-    name: string;
-    phone: string;
-    email: string;
+    name?: string;
+    phone?: string;
+    email?: string;
   };
 
   @IsString()
@@ -48,8 +52,62 @@ export class CreateClientDto {
   @IsObject()
   @IsOptional()
   salesRep?: {
-    name: string;
-    phone: string;
-    email: string;
+    name?: string;
+    phone?: string;
+    email?: string;
+    designation?: string;
   };
+  
+  @IsObject()
+  @IsOptional()
+  salesRepresentative?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    designation?: string;
+  };
+  
+  // Additional fields to match frontend model
+  @IsString()
+  @IsOptional()
+  logisticsName?: string;
+  
+  @IsString()
+  @IsOptional()
+  logisticsPhone?: string;
+  
+  @IsString()
+  @IsOptional()
+  logisticsEmail?: string;
+  
+  @IsString()
+  @IsOptional()
+  financeName?: string;
+  
+  @IsString()
+  @IsOptional()
+  financePhone?: string;
+  
+  @IsString()
+  @IsOptional()
+  financeEmail?: string;
+  
+  @IsString()
+  @IsOptional()
+  salesRepName?: string;
+  
+  @IsString()
+  @IsOptional()
+  salesRepDesignation?: string;
+  
+  @IsString()
+  @IsOptional()
+  salesRepPhone?: string;
+  
+  @IsString()
+  @IsOptional()
+  salesRepEmail?: string;
+  
+  @IsOptional()
+  documents?: any[];
 } 

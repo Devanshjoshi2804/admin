@@ -1,79 +1,166 @@
+# OS and Editor files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+.vscode/
+.idea/
+*.swp
+*.swo
+
 # Logs
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
-node_modules
-.pnp
-.pnp.js
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# Build directories
-/dist
-/dist-ssr
-*.local
-/build
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
 
-# Backend specific
-/backend/api/dist
-/backend/api/node_modules
-/backend/api/freight_flow.sqlite
-/backend/api/freight_flow.sqlite-journal
-/backend/api/.env
-/backend/api/coverage
+# nyc test coverage
+.nyc_output
 
-# Environment files
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
 .env
+.env.test
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.production
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Testing
-/coverage
-/.nyc_output
-
-# Temporary files
-*.tmp
-*.temp
+# parcel-bundler cache (https://parceljs.org/)
 .cache
+.parcel-cache
 
-# OS specific
-Thumbs.db
-desktop.ini
+# Next.js build output
+.next
 
-# Package managers
-yarn.lock
-package-lock.json
-# Keep bun.lockb as it's binary and needed
-# bun.lockb
+# Nuxt.js build / generate output
+.nuxt
+dist
 
-# Debug files
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Gatsby files
+.cache/
+public
 
-# Miscellaneous
-*.bak
-*.orig
-*.~
-*.swp
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.db
+*.sqlite
+*.sqlite3
+
+# Flutter/Dart
+# Flutter specific
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/gradle-wrapper.jar
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/key.properties
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GoogleService-Info.plist
+**/web/assets/AssetManifest.json
+**/web/assets/FontManifest.json
+
+# Dart specific
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+flutter_*.png
+linked_*.ds
+unlinked.ds
+unlinked_spec.ds
+
+# Docker
+.dockerignore
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Build artifacts
+dist/
+build/
+out/ 

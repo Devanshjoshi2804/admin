@@ -1,0 +1,60 @@
+╔════════════════════╗         ╔════════════════════╗         ╔════════════════════╗
+║   Flutter Frontend  ║         ║     API Service    ║         ║   NestJS Backend   ║
+╚════════════════════╝         ╚════════════════════╝         ╚════════════════════╝
+          │                               │                               │
+          │                               │                               │
+┌─────────▼──────────┐                    │                               │
+│ FTLBookingScreen   │                    │                               │
+│ - Multi-step form  │                    │                               │
+│ - Client selection │                    │                               │
+│ - Vehicle selection│                    │                               │
+│ - Freight pricing  │                    │                               │
+└─────────┬──────────┘                    │                               │
+          │                               │                               │
+┌─────────▼──────────┐                    │                               │
+│ bookingFormData    │                    │                               │
+│ Provider           │                    │                               │
+│ - Manages form data│                    │                               │
+└─────────┬──────────┘                    │                               │
+          │                               │                               │
+┌─────────▼──────────┐                    │                               │
+│ Freight            │                    │                               │
+│ Calculations       │◄───┐               │                               │
+│ - Margin           │    │               │                               │
+│ - Advance freight  │    │ Recalculate   │                               │
+│ - Balance freight  │    │ as needed     │                               │
+└─────────┬──────────┘    │               │                               │
+          │               │               │                               │
+          └───────────────┘               │                               │
+          │                               │                               │
+┌─────────▼──────────┐    ┌───────────────▼─────────────┐                │
+│ submitBooking      │    │ ApiService.createTrip()     │                │
+│ Provider           │───►│ - Process data              │                │
+│ - Format API data  │    │ - Format dates              │    POST /trips │
+└────────────────────┘    │ - Validate required fields  │───────────────►│
+                          │ - Calculate freight values  │                │
+                          └───────────────┬─────────────┘     ┌──────────▼─────────┐
+                                          │                   │ TripsController    │
+                                          │                   │ .create()          │
+                                          │                   └──────────┬─────────┘
+                                          │                              │
+                                          │                   ┌──────────▼─────────┐
+                                          │                   │ TripsService       │
+                                          │                   │ .create()          │
+                                          │                   │ - Generate IDs     │
+                                          │                   │ - Verify data      │
+                                          │                   │ - Create document  │
+                                          │                   └──────────┬─────────┘
+                                          │                              │
+                           ┌──────────────▼──────────────┐   ┌───────────▼─────────┐
+                           │ Trip object returned        │◄──┤ MongoDB             │
+                           │ - Parse with Trip.fromJson()│   │ - Trip collection   │
+                           └──────────────┬──────────────┘   └─────────────────────┘
+                                          │
+          ┌─────────────────────────────┬─┴─────────────────────────────┐
+          │                             │                               │
+┌─────────▼──────────┐     ┌────────────▼────────────┐     ┌────────────▼────────────┐
+│ TripsScreen        │     │ TripDetailScreen        │     │ PaymentDashboard        │
+│ - List all trips   │     │ - View single trip      │     │ - Process payments      │
+│ - Filter and sort  │     │ - Manage documents      │     │ - Update status         │
+└────────────────────┘     └─────────────────────────┘     └─────────────────────────┘

@@ -2,42 +2,58 @@ import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateVehicleDto {
   @IsString()
+  @IsOptional()
+  id?: string;
+
+  @IsString()
   @IsNotEmpty()
   registrationNumber: string;
 
   @IsString()
-  @IsOptional()
-  supplierId?: string;
+  @IsNotEmpty()
+  type: string;
 
   @IsString()
   @IsNotEmpty()
-  supplierName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  vehicleType: string;
-
-  @IsString()
-  @IsNotEmpty()
-  vehicleSize: string;
-
-  @IsString()
-  @IsNotEmpty()
-  vehicleCapacity: string;
-
-  @IsString()
-  @IsNotEmpty()
-  axleType: string;
-
-  @IsString()
-  @IsNotEmpty()
-  driverName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  driverPhone: string;
+  capacity: string;
 
   @IsString()
   @IsOptional()
-  insuranceExpiry?: string;
+  dimensions?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  supplierId: string;
+
+  @IsString()
+  @IsOptional()
+  supplierName?: string;
+
+  @IsString()
+  @IsOptional()
+  driverName?: string;
+
+  @IsString()
+  @IsOptional()
+  driverPhone?: string;
+
+  @IsString()
+  @IsOptional()
+  insuranceExpiryDate?: string;
+
+  @IsString()
+  @IsOptional()
+  pucExpiryDate?: string;
+
+  @IsString()
+  @IsOptional()
+  fitnessExpiryDate?: string;
+
+  @IsString()
+  @IsOptional()
+  permitExpiryDate?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
 } 

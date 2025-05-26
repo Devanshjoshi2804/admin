@@ -1,6 +1,10 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsObject, IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class CreateSupplierDto {
+  @IsString()
+  @IsOptional()
+  id?: string;
+
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -13,24 +17,119 @@ export class CreateSupplierDto {
   @IsNotEmpty()
   address: string;
 
-  @IsObject()
+  @IsString()
   @IsOptional()
-  contactPerson?: {
-    name: string;
-    phone: string;
-    email: string;
-  };
+  state?: string;
 
-  @IsObject()
+  @IsString()
   @IsOptional()
-  bankDetails?: {
-    accountNumber: string;
-    bankName: string;
-    ifscCode: string;
-    accountHolderName: string;
-  };
+  pinCode?: string;
+
+  @IsString()
+  @IsOptional()
+  pincode?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  hasGST?: boolean;
 
   @IsString()
   @IsOptional()
   gstNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  aadharCardNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  panCardNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  panNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  contactName?: string;
+  
+  @IsString()
+  @IsOptional()
+  contactPhone?: string;
+  
+  @IsString()
+  @IsOptional()
+  contactEmail?: string;
+
+  @IsObject()
+  @IsOptional()
+  contactPerson?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
+  
+  @IsString()
+  @IsOptional()
+  representativeName?: string;
+  
+  @IsString()
+  @IsOptional()
+  representativeDesignation?: string;
+  
+  @IsString()
+  @IsOptional()
+  representativePhone?: string;
+  
+  @IsString()
+  @IsOptional()
+  representativeEmail?: string;
+  
+  @IsString()
+  @IsOptional()
+  bankName?: string;
+  
+  @IsString()
+  @IsOptional()
+  accountType?: string;
+  
+  @IsString()
+  @IsOptional()
+  accountNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  accountHolderName?: string;
+  
+  @IsString()
+  @IsOptional()
+  ifscCode?: string;
+
+  @IsObject()
+  @IsOptional()
+  accountDetails?: {
+    accountNumber?: string;
+    bankName?: string;
+    ifscCode?: string;
+    accountHolderName?: string;
+    accountType?: string;
+  };
+
+  @IsString()
+  @IsOptional()
+  serviceType?: string;
+
+  @IsOptional()
+  vehicleTypes?: string[];
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+  
+  @IsOptional()
+  documents?: any[];
 } 
